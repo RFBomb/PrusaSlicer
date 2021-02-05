@@ -641,6 +641,7 @@ void GLCanvas3D::WarningTexture::activate(WarningTexture::Warning warning, bool 
         error = true;
         break;
     }
+    BOOST_LOG_TRIVIAL(error) << state << " : " << text ;
     auto &notification_manager = *wxGetApp().plater()->get_notification_manager();
     if (state) {
         if(error)
@@ -2233,17 +2234,17 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
 
     // checks for geometry outside the print volume to render it accordingly
     if (!m_volumes.empty()) {
-        ModelInstanceEPrintVolumeState state;
+        bool partlyOut = false;
+        bool fullyOut = false;
+        const bool contained_min_one = m_volumes.check_outside_state(m_config, partlyOut, fullyOut);
 
-        const bool contained_min_one = m_volumes.check_outside_state(m_config, &state);
-
-        _set_warning_texture(WarningTexture::ObjectClashed, state == ModelInstancePVS_Partly_Outside);
-        _set_warning_texture(WarningTexture::ObjectOutside, state == ModelInstancePVS_Fully_Outside);
-        if(printer_technology != ptSLA || state == ModelInstancePVS_Inside)
+        _set_warning_texture(WarningTexture::ObjectClashed, partlyOut);
+        _set_warning_texture(WarningTexture::ObjectOutside, fullyOut);
+        if(printer_technology != ptSLA || contained_min_one == false)
             _set_warning_texture(WarningTexture::SlaSupportsOutside, false);
 
         post_event(Event<bool>(EVT_GLCANVAS_ENABLE_ACTION_BUTTONS, 
-                               contained_min_one && !m_model->objects.empty() && state != ModelInstancePVS_Partly_Outside));
+                               contained_min_one && !m_model->objects.empty() && !partlyOut));
     }
     else {
         _set_warning_texture(WarningTexture::ObjectOutside, false);

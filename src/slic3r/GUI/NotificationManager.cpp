@@ -411,7 +411,7 @@ void NotificationManager::PopNotification::render_hypertext(ImGuiWrapper& imgui,
 			set_next_window_size(imgui);
 		}
 		else if (on_text_click()) {
-			m_state = EState::ClosePending;
+			close();
 		}
 	}
 	ImGui::PopStyleColor();
@@ -465,7 +465,7 @@ void NotificationManager::PopNotification::render_close_button(ImGuiWrapper& img
 	ImGui::SetCursorPosY(win_size.y / 2 - button_size.y);
 	if (imgui.button(button_text.c_str(), button_size.x, button_size.y))
 	{
-		m_state = EState::ClosePending;
+		close();
 	}
 
 	//invisible large button
@@ -473,7 +473,7 @@ void NotificationManager::PopNotification::render_close_button(ImGuiWrapper& img
 	ImGui::SetCursorPosY(0);
 	if (imgui.button(" ", m_line_height * 2.125, win_size.y - ( m_minimize_b_visible ? 2 * m_line_height : 0)))
 	{
-		m_state = EState::ClosePending;
+		close();
 	}
 	ImGui::PopStyleColor();
 	ImGui::PopStyleColor();
@@ -742,7 +742,7 @@ void NotificationManager::ExportFinishedNotification::render_eject_button(ImGuiW
 		assert(m_evt_handler != nullptr);
 		if (m_evt_handler != nullptr)
 			wxPostEvent(m_evt_handler, EjectDriveNotificationClickedEvent(EVT_EJECT_DRIVE_NOTIFICAION_CLICKED));
-		m_state = EState::ClosePending;
+		close();
 	}
 
 	//invisible large button
@@ -753,7 +753,7 @@ void NotificationManager::ExportFinishedNotification::render_eject_button(ImGuiW
 		assert(m_evt_handler != nullptr);
 		if (m_evt_handler != nullptr)
 			wxPostEvent(m_evt_handler, EjectDriveNotificationClickedEvent(EVT_EJECT_DRIVE_NOTIFICAION_CLICKED));
-		m_state = EState::ClosePending;
+		close();
 	}
 	ImGui::PopStyleColor();
 	ImGui::PopStyleColor();
@@ -845,12 +845,7 @@ void NotificationManager::push_plater_error_notification(const std::string& text
 {
 	push_notification_data({ NotificationType::PlaterError, NotificationLevel::ErrorNotification, 0,  _u8L("ERROR:") + "\n" + text }, 0);
 }
-void NotificationManager::push_plater_warning_notification(const std::string& text)
-{
-	push_notification_data({ NotificationType::PlaterWarning, NotificationLevel::WarningNotification, 0,  _u8L("WARNING:") + "\n" + text }, 0);
-	// dissaper if in preview
-	set_in_preview(m_in_preview);
-}
+
 void NotificationManager::close_plater_error_notification(const std::string& text)
 {
 	for (std::unique_ptr<PopNotification> &notification : m_pop_notifications) {
@@ -859,11 +854,32 @@ void NotificationManager::close_plater_error_notification(const std::string& tex
 		}
 	}
 }
+
+void NotificationManager::push_plater_warning_notification(const std::string& text)
+{
+	// Find if was not hidden 
+	for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
+		if (notification->get_type() == NotificationType::PlaterWarning && notification->compare_text(_u8L("WARNING:") + "\n" + text)) {
+			if (notification->get_state() == PopNotification::EState::Hidden) {
+				//dynamic_cast<PlaterWarningNotification*>(notification.get())->show();
+				return;
+			}
+		}
+	}
+
+	NotificationData data{ NotificationType::PlaterWarning, NotificationLevel::WarningNotification, 0,  _u8L("WARNING:") + "\n" + text };
+
+	auto notification = std::make_unique<NotificationManager::PlaterWarningNotification>(data, m_id_provider, m_evt_handler);
+	push_notification_data(std::move(notification), 0);
+	// dissaper if in preview
+	set_in_preview(m_in_preview);
+}
+
 void NotificationManager::close_plater_warning_notification(const std::string& text)
 {
 	for (std::unique_ptr<PopNotification> &notification : m_pop_notifications) {
 		if (notification->get_type() == NotificationType::PlaterWarning && notification->compare_text(_u8L("WARNING:") + "\n" + text)) {
-			notification->close();
+			dynamic_cast<PlaterWarningNotification*>(notification.get())->real_close();
 		}
 	}
 }

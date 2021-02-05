@@ -200,7 +200,7 @@ private:
 		virtual ~PopNotification() { if (m_id) m_id_provider.release_id(m_id); }
 		void                   render(GLCanvas3D& canvas, float initial_y, bool move_from_overlay, float overlay_width);
 		// close will dissapear notification on next render
-		void                   close() { m_state = EState::ClosePending; }
+		virtual void           close() { m_state = EState::ClosePending; }
 		// data from newer notification of same type
 		void                   update(const NotificationData& n);
 		bool                   is_finished() const { return m_state == EState::ClosePending || m_state == EState::Finished; }
@@ -213,7 +213,7 @@ private:
 		const bool             is_gray() const { return m_is_gray; }
 		void                   set_gray(bool g) { m_is_gray = g; }
 		bool                   compare_text(const std::string& text);
-        void                   hide(bool h) { m_state = EState::Hidden; }
+        void                   hide(bool h) {  m_state = h ? EState::Hidden : EState::Unknown; }
 		// sets m_next_render with time of next mandatory rendering
 		void                   update_state(bool paused);
 		int64_t 		       next_render() const { return is_finished() ? 0 : m_next_render; }
@@ -321,6 +321,15 @@ private:
 		SlicingWarningNotification(const NotificationData& n, NotificationIDProvider& id_provider, wxEvtHandler* evt_handler) : PopNotification(n, id_provider, evt_handler) {}
 		ObjectID 	object_id;
 		int    		warning_step;
+	};
+
+	class PlaterWarningNotification : public PopNotification
+	{
+	public:
+		PlaterWarningNotification(const NotificationData& n, NotificationIDProvider& id_provider, wxEvtHandler* evt_handler) : PopNotification(n, id_provider, evt_handler) {}
+		virtual void close()      { m_state = EState::Hidden; }
+		void		 real_close() { m_state = EState::ClosePending; }
+		void         show()       { m_state = EState::Unknown; }
 	};
 
 	class ProgressBarNotification : public PopNotification
